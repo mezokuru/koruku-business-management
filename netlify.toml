@@ -2,12 +2,6 @@
   command = "npm run build"
   publish = "dist"
 
-[build.processing]
-  skip_processing = false
-
-[build.processing.secrets]
-  enabled = false
-
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -28,3 +22,4 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
