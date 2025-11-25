@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-import type { Invoice, InvoiceInput } from '../../types/database';
+import type { Invoice, InvoiceInput, InvoiceItemInput } from '../../types/database';
 import { useCreateInvoice, useUpdateInvoice } from '../../hooks/useInvoices';
 import { useClients } from '../../hooks/useClients';
 import { useProjects } from '../../hooks/useProjects';
 import { useSettings } from '../../hooks/useSettings';
 import { generateInvoiceNumber } from '../../lib/utils';
 import toast from 'react-hot-toast';
+
+interface LineItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+}
 
 interface InvoiceFormProps {
   invoice?: Invoice | null;
@@ -29,6 +37,11 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
     notes: '',
   });
 
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: '', quantity: 1, unit_price: 0, amount: 0 },
+  ]);
+
+  const [useLineItems, setUseLineItems] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
 
@@ -56,6 +69,22 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
         description: invoice.description,
         notes: invoice.notes || '',
       });
+
+      // Load line items if they exist
+      if (invoice.items && invoice.items.length > 0) {
+        setLineItems(
+          invoice.items.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            amount: item.amount,
+          }))
+        );
+        setUseLineItems(true);
+      } else {
+        setLineItems([{ description: '', quantity: 1, unit_price: 0, amount: 0 }]);
+        setUseLineItems(false);
+      }
     } else {
       // Reset form for new invoice
       const today = new Date().toISOString().split('T')[0];
@@ -75,6 +104,9 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
         description: '',
         notes: '',
       });
+      
+      setLineItems([{ description: '', quantity: 1, unit_price: 0, amount: 0 }]);
+      setUseLineItems(false);
       
       // Auto-generate invoice number for new invoices
       if (isOpen && !invoice) {
@@ -98,6 +130,43 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
     }
   };
 
+  // Line items handlers
+  const calculateItemAmount = (quantity: number, unitPrice: number) => {
+    return quantity * unitPrice;
+  };
+
+  const calculateTotal = () => {
+    if (!useLineItems) {
+      return formData.amount;
+    }
+    return lineItems.reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const handleAddItem = () => {
+    setLineItems([...lineItems, { description: '', quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleItemChange = (index: number, field: keyof LineItem, value: string | number) => {
+    const newItems = [...lineItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+
+    // Recalculate amount
+    if (field === 'quantity' || field === 'unit_price') {
+      newItems[index].amount = calculateItemAmount(
+        newItems[index].quantity,
+        newItems[index].unit_price
+      );
+    }
+
+    setLineItems(newItems);
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -112,12 +181,33 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
     }
 
     // Amount validation (required, 0.01-999999.99 with 2 decimals)
-    if (!formData.amount || formData.amount <= 0) {
-      newErrors.amount = 'Amount must be greater than 0';
-    } else if (formData.amount < 0.01 || formData.amount > 999999.99) {
-      newErrors.amount = 'Amount must be between 0.01 and 999,999.99';
-    } else if (!/^\d+(\.\d{1,2})?$/.test(formData.amount.toString())) {
-      newErrors.amount = 'Amount must have at most 2 decimal places';
+    if (useLineItems) {
+      // Validate line items
+      lineItems.forEach((item, index) => {
+        if (!item.description.trim()) {
+          newErrors[`item_${index}_description`] = 'Description is required';
+        }
+        if (item.quantity <= 0) {
+          newErrors[`item_${index}_quantity`] = 'Quantity must be greater than 0';
+        }
+        if (item.unit_price < 0) {
+          newErrors[`item_${index}_unit_price`] = 'Unit price cannot be negative';
+        }
+      });
+
+      const total = calculateTotal();
+      if (total <= 0) {
+        newErrors.amount = 'Total amount must be greater than 0';
+      }
+    } else {
+      // Validate single amount field
+      if (!formData.amount || formData.amount <= 0) {
+        newErrors.amount = 'Amount must be greater than 0';
+      } else if (formData.amount < 0.01 || formData.amount > 999999.99) {
+        newErrors.amount = 'Amount must be between 0.01 and 999,999.99';
+      } else if (!/^\d+(\.\d{1,2})?$/.test(formData.amount.toString())) {
+        newErrors.amount = 'Amount must have at most 2 decimal places';
+      }
     }
 
     // Date validation (required, within 1 year range)
@@ -179,17 +269,35 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
     }
 
     try {
-      // Prepare data with proper types
+      // Prepare invoice data
       const submitData: InvoiceInput = {
         ...formData,
-        amount: Number(formData.amount),
+        amount: useLineItems ? calculateTotal() : Number(formData.amount),
         project_id: formData.project_id || undefined,
       };
 
+      // Prepare line items if using them
+      const items: InvoiceItemInput[] | undefined = useLineItems
+        ? lineItems.map((item, index) => ({
+            invoice_id: '', // Will be set by the hook
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            sort_order: index,
+          }))
+        : undefined;
+
       if (invoice) {
-        await updateInvoice.mutateAsync({ id: invoice.id, ...submitData });
+        await updateInvoice.mutateAsync({ 
+          id: invoice.id, 
+          invoice: submitData,
+          items 
+        });
       } else {
-        await createInvoice.mutateAsync(submitData);
+        await createInvoice.mutateAsync({ 
+          invoice: submitData,
+          items 
+        });
       }
       onClose();
     } catch (error: any) {
@@ -363,41 +471,152 @@ export default function InvoiceForm({ invoice, isOpen, onClose }: InvoiceFormPro
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            label="Amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            max="999999.99"
-            value={formData.amount}
-            onChange={(e) => handleChange('amount', parseFloat(e.target.value) || 0)}
-            error={errors.amount}
-            required
+        {/* Toggle between simple amount and line items */}
+        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          <input
+            type="checkbox"
+            id="use-line-items"
+            checked={useLineItems}
+            onChange={(e) => setUseLineItems(e.target.checked)}
             disabled={isSubmitting}
-            placeholder="0.00"
+            className="w-4 h-4 text-[#ffd166] border-gray-300 rounded focus:ring-[#ffd166]"
           />
-
-          <Input
-            label="Invoice Date"
-            type="date"
-            value={formData.date}
-            onChange={(e) => handleChange('date', e.target.value)}
-            error={errors.date}
-            required
-            disabled={isSubmitting}
-          />
-
-          <Input
-            label="Due Date"
-            type="date"
-            value={formData.due_date}
-            onChange={(e) => handleChange('due_date', e.target.value)}
-            error={errors.due_date}
-            required
-            disabled={isSubmitting}
-          />
+          <label htmlFor="use-line-items" className="text-sm font-medium text-[#2c3e50] cursor-pointer">
+            Use itemized line items (recommended for detailed invoices)
+          </label>
         </div>
+
+        {useLineItems ? (
+          /* Line Items Section */
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-[#2c3e50]">
+                Line Items <span className="text-[#e74c3c]">*</span>
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon={<Plus size={16} />}
+                onClick={handleAddItem}
+                disabled={isSubmitting}
+              >
+                Add Item
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {lineItems.map((item, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <Input
+                        label="Description"
+                        value={item.description}
+                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                        error={errors[`item_${index}_description`]}
+                        placeholder="e.g., Website Development"
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    {lineItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        disabled={isSubmitting}
+                        className="mt-7 p-2 text-[#e74c3c] hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        aria-label="Remove item"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      label="Quantity"
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                      error={errors[`item_${index}_quantity`]}
+                      required
+                      disabled={isSubmitting}
+                    />
+
+                    <Input
+                      label="Unit Price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                      error={errors[`item_${index}_unit_price`]}
+                      required
+                      disabled={isSubmitting}
+                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#2c3e50] mb-1">
+                        Amount
+                      </label>
+                      <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#2c3e50] font-semibold">
+                        R {item.amount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            <div className="bg-gray-50 rounded-lg p-4 mt-4">
+              <div className="flex justify-between text-lg">
+                <span className="font-bold text-[#2c3e50]">Total:</span>
+                <span className="font-bold text-[#27ae60]">R {calculateTotal().toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Simple Amount Field */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input
+              label="Amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              max="999999.99"
+              value={formData.amount}
+              onChange={(e) => handleChange('amount', parseFloat(e.target.value) || 0)}
+              error={errors.amount}
+              required
+              disabled={isSubmitting}
+              placeholder="0.00"
+            />
+
+            <Input
+              label="Invoice Date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleChange('date', e.target.value)}
+              error={errors.date}
+              required
+              disabled={isSubmitting}
+            />
+
+            <Input
+              label="Due Date"
+              type="date"
+              value={formData.due_date}
+              onChange={(e) => handleChange('due_date', e.target.value)}
+              error={errors.due_date}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+        )}
 
         <div className="w-full">
           <label

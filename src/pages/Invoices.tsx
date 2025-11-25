@@ -132,7 +132,9 @@ const Invoices = () => {
     try {
       await updateInvoice.mutateAsync({
         id: invoice.id,
-        status: 'sent',
+        invoice: {
+          status: 'sent',
+        },
       });
       toast.success('Invoice marked as sent');
     } catch (error) {

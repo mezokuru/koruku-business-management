@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { Invoice, InvoiceInput } from '../types/database';
+import type { Invoice, InvoiceInput, InvoiceItemInput } from '../types/database';
 import toast from 'react-hot-toast';
 
 interface InvoiceFilters {
@@ -62,18 +62,30 @@ export function useInvoice(id: string | undefined) {
         throw new Error(error.message || 'Failed to fetch invoice');
       }
 
-      return data;
+      // Fetch invoice items separately
+      const { data: items, error: itemsError } = await supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', id)
+        .order('sort_order');
+
+      if (itemsError) {
+        console.error('Failed to fetch invoice items:', itemsError);
+      }
+
+      return { ...data, items: items || [] } as Invoice;
     },
     enabled: !!id,
   });
 }
 
-// Create invoice mutation
+// Create invoice mutation with line items
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (invoice: InvoiceInput) => {
+    mutationFn: async ({ invoice, items }: { invoice: InvoiceInput; items?: InvoiceItemInput[] }) => {
+      // Create invoice
       const { data, error } = await supabase
         .from('invoices')
         .insert([invoice])
@@ -90,6 +102,26 @@ export function useCreateInvoice() {
           throw new Error('Invoice number already exists. Please use a different number.');
         }
         throw new Error(error.message || 'Failed to create invoice');
+      }
+
+      // Create invoice items if provided
+      if (items && items.length > 0) {
+        const itemsWithInvoiceId = items.map((item, index) => ({
+          ...item,
+          invoice_id: data.id,
+          sort_order: item.sort_order ?? index,
+          amount: item.quantity * item.unit_price,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(itemsWithInvoiceId);
+
+        if (itemsError) {
+          // Rollback: delete the invoice if items creation fails
+          await supabase.from('invoices').delete().eq('id', data.id);
+          throw new Error('Failed to create invoice items');
+        }
       }
 
       return data as Invoice;
@@ -109,15 +141,16 @@ export function useCreateInvoice() {
   });
 }
 
-// Update invoice mutation
+// Update invoice mutation with line items
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Invoice> & { id: string }) => {
+    mutationFn: async ({ id, invoice, items }: { id: string; invoice: Partial<InvoiceInput>; items?: InvoiceItemInput[] }) => {
+      // Update invoice
       const { data, error } = await supabase
         .from('invoices')
-        .update(updates)
+        .update(invoice)
         .eq('id', id)
         .select(`
           *,
@@ -132,6 +165,30 @@ export function useUpdateInvoice() {
           throw new Error('Invoice number already exists. Please use a different number.');
         }
         throw new Error(error.message || 'Failed to update invoice');
+      }
+
+      // Update invoice items if provided
+      if (items !== undefined) {
+        // Delete existing items
+        await supabase.from('invoice_items').delete().eq('invoice_id', id);
+
+        // Insert new items
+        if (items.length > 0) {
+          const itemsWithInvoiceId = items.map((item, index) => ({
+            ...item,
+            invoice_id: id,
+            sort_order: item.sort_order ?? index,
+            amount: item.quantity * item.unit_price,
+          }));
+
+          const { error: itemsError } = await supabase
+            .from('invoice_items')
+            .insert(itemsWithInvoiceId);
+
+          if (itemsError) {
+            throw new Error('Failed to update invoice items');
+          }
+        }
       }
 
       return data as Invoice;

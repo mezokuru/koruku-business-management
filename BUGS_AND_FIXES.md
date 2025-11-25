@@ -131,7 +131,7 @@ GROUP BY pr.id, pr.name, c.business, pr.labour_amount, pr.infrastructure_amount;
 
 ### Severity: MEDIUM
 ### Location: `project_profitability` view
-### Status: ❌ NOT FIXED
+### Status: ⚠️ NOT A BUG - User Workflow Issue
 
 ### Description
 
@@ -452,7 +452,7 @@ const pricingPresets = [
 
 ### Severity: MEDIUM
 ### Location: Quotation Form & Invoice Form
-### Status: ❌ NOT FIXED
+### Status: ✅ FIXED (Invoices) | ✅ Already Working (Quotations)
 
 ### Description
 
@@ -996,6 +996,29 @@ Then add Settings UI to manage all of these.
 
 **Result:** Quotation form now shows correct pricing that matches Mezokuru's actual offerings
 
+### Bug #4: Invoice Line Items - FIXED ✅
+**Files:**
+- `supabase/migrations/008_add_invoice_line_items.sql` (database)
+- `src/hooks/useInvoices.ts` (hooks)
+- `src/components/invoices/InvoiceForm.tsx` (UI)
+- `src/pages/Invoices.tsx` (page update)
+
+**Changes:**
+- Created `invoice_items` table with RLS policies
+- Added auto-calculation trigger to sync invoice total from line items
+- Updated invoice hooks to support creating/updating with line items
+- Added line items UI to invoice form with toggle option
+- Users can choose between simple amount or itemized breakdown
+
+**Features:**
+- Add/remove line items dynamically
+- Auto-calculate item amounts (quantity × unit price)
+- Auto-calculate invoice total from all items
+- Drag-friendly UI similar to quotations
+- Backward compatible (can still use simple amount field)
+
+**Result:** Invoices now support professional itemized breakdowns
+
 ### Next Steps
 To apply these fixes to production:
 ```bash
@@ -1012,4 +1035,4 @@ npm run build
 *Bug report created by: Kiro AI Assistant*  
 *Date: November 25, 2025*  
 *Last Updated: November 25, 2025*  
-*Status: 2 FIXED ✅ | 3 Pending | 1 Enhancement | 1 Architecture Issue*
+*Status: 3 FIXED ✅ | 2 Pending | 1 Enhancement | 1 Architecture Issue*
