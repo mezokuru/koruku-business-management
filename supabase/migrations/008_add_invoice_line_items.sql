@@ -5,8 +5,15 @@
 -- This migration adds invoice_items table for detailed invoice breakdowns
 -- ============================================================================
 
+-- Drop existing objects if they exist (for clean re-run)
+DROP TRIGGER IF EXISTS sync_invoice_amount_on_item_change ON invoice_items;
+DROP TRIGGER IF EXISTS update_invoice_items_updated_at ON invoice_items;
+DROP FUNCTION IF EXISTS sync_invoice_amount_from_items();
+DROP FUNCTION IF EXISTS calculate_invoice_total_from_items(UUID);
+DROP TABLE IF EXISTS invoice_items CASCADE;
+
 -- Create invoice_items table
-CREATE TABLE IF NOT EXISTS invoice_items (
+CREATE TABLE invoice_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
   description TEXT NOT NULL CHECK (length(description) >= 1 AND length(description) <= 500),
@@ -15,8 +22,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
   amount DECIMAL(10,2) NOT NULL CHECK (amount >= 0),
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT invoice_items_amount_check CHECK (amount = quantity * unit_price)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create indexes
@@ -26,45 +32,14 @@ CREATE INDEX IF NOT EXISTS idx_invoice_items_sort_order ON invoice_items(invoice
 -- Add RLS policies
 ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view their own invoice items"
-ON invoice_items FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM invoices
-    WHERE invoices.id = invoice_items.invoice_id
-    AND invoices.user_id = auth.uid()
-  )
-);
+-- Drop existing policy if it exists
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON invoice_items;
 
-CREATE POLICY "Users can insert their own invoice items"
-ON invoice_items FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM invoices
-    WHERE invoices.id = invoice_items.invoice_id
-    AND invoices.user_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Users can update their own invoice items"
-ON invoice_items FOR UPDATE
-USING (
-  EXISTS (
-    SELECT 1 FROM invoices
-    WHERE invoices.id = invoice_items.invoice_id
-    AND invoices.user_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Users can delete their own invoice items"
-ON invoice_items FOR DELETE
-USING (
-  EXISTS (
-    SELECT 1 FROM invoices
-    WHERE invoices.id = invoice_items.invoice_id
-    AND invoices.user_id = auth.uid()
-  )
-);
+-- Allow all operations for authenticated users (matching invoices table policy)
+CREATE POLICY "Allow all for authenticated users" 
+ON invoice_items 
+FOR ALL 
+USING (auth.uid() IS NOT NULL);
 
 -- Add trigger to update updated_at
 CREATE TRIGGER update_invoice_items_updated_at

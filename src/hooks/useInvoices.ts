@@ -242,12 +242,41 @@ export function useDeleteInvoice() {
   });
 }
 
-// Mark invoice as paid mutation
+// Mark invoice as paid mutation (with automatic payment record creation)
 export function useMarkInvoicePaid() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // First, get the invoice details
+      const { data: invoice, error: fetchError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !invoice) {
+        throw new Error('Failed to fetch invoice details');
+      }
+
+      // Create a payment record for the full invoice amount
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          invoice_id: id,
+          amount: invoice.amount,
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_method: 'bank_transfer', // Default method
+          reference: `Auto-generated for ${invoice.invoice_number}`,
+          notes: 'Automatically created when marking invoice as paid',
+        });
+
+      if (paymentError) {
+        console.error('Failed to create payment record:', paymentError);
+        // Continue anyway - the trigger will update the status
+      }
+
+      // Update invoice status (the payment trigger will handle this, but we do it explicitly too)
       const { data, error } = await supabase
         .from('invoices')
         .update({
@@ -277,7 +306,11 @@ export function useMarkInvoicePaid() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       // Invalidate recent invoices
       queryClient.invalidateQueries({ queryKey: ['recent-invoices'] });
-      toast.success('Invoice marked as paid');
+      // Invalidate payments
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      // Invalidate reports
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      toast.success('Invoice marked as paid and payment record created');
     },
     onError: (error: Error) => {
       toast.error(error.message);

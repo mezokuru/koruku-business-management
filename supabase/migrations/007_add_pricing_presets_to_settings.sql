@@ -6,7 +6,7 @@
 -- ============================================================================
 
 -- Add pricing presets to settings
-INSERT INTO settings (key, value, description)
+INSERT INTO settings (key, value)
 VALUES (
   'pricing_presets',
   '{
@@ -99,13 +99,11 @@ VALUES (
         "monitoring": 10
       }
     }
-  }'::jsonb,
-  'Mezokuru pricing presets and formula configuration'
+  }'::jsonb
 )
 ON CONFLICT (key) DO UPDATE
 SET 
   value = EXCLUDED.value,
-  description = EXCLUDED.description,
   updated_at = NOW();
 
 -- Verification query
@@ -114,5 +112,9 @@ SELECT
   '8 presets configured: R1,200 to R55,000' as range,
   'Websites, E-commerce, Mobile Apps categories' as categories;
 
+-- Add comment to settings table
 COMMENT ON TABLE settings IS 'System settings and configuration, including pricing presets';
+
+-- Add comment to the pricing_presets key
+COMMENT ON COLUMN settings.key IS 'Setting key: business_info, invoice_settings, project_settings, pricing_presets';
 

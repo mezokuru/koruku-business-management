@@ -24,6 +24,7 @@ import InvoiceForm from '../components/invoices/InvoiceForm';
 import RevenueChart from '../components/dashboard/RevenueChart';
 import InvoiceStatusChart from '../components/dashboard/InvoiceStatusChart';
 import TopClientsChart from '../components/dashboard/TopClientsChart';
+import { DashboardReports } from '../components/dashboard/DashboardReports';
 import { useDashboardStats, useRecentInvoices, useExpiringSupportProjects } from '../hooks/useDashboard';
 import { useMonthlyRevenue, useInvoiceStatusDistribution, useTopClientsByRevenue } from '../hooks/useChartData';
 import { formatCurrency, formatDate, getDaysUntilSupportEnds } from '../lib/utils';
@@ -274,6 +275,9 @@ export default function Dashboard() {
             />
           </div>
         </section>
+
+        {/* Business Intelligence Reports - Collapsible Widgets */}
+        <DashboardReports />
       </div>
 
       {/* Quick action modals */}

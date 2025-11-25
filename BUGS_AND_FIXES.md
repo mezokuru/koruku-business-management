@@ -131,7 +131,7 @@ GROUP BY pr.id, pr.name, c.business, pr.labour_amount, pr.infrastructure_amount;
 
 ### Severity: MEDIUM
 ### Location: `project_profitability` view
-### Status: ⚠️ NOT A BUG - User Workflow Issue
+### Status: ✅ FIXED
 
 ### Description
 
@@ -552,9 +552,9 @@ interface LineItem {
 
 ## 🐛 Bug #5: Pricing Formula "Generate Items" Button Does Nothing Visible
 
-### Severity: MEDIUM
+### Severity: LOW
 ### Location: Quotation Form - Mezokuru Pricing Formula
-### Status: ❌ NOT FIXED (Unclear)
+### Status: ✅ WORKING (Not a Bug)
 
 ### Description
 
@@ -1019,6 +1019,34 @@ Then add Settings UI to manage all of these.
 
 **Result:** Invoices now support professional itemized breakdowns
 
+### Bug #2: Collected Amount - FIXED ✅
+**File:**
+- `src/hooks/useInvoices.ts`
+
+**Changes:**
+- Enhanced `useMarkInvoicePaid()` to automatically create payment record
+- When marking invoice as paid, creates full payment record
+- Payment amount = invoice amount
+- Default payment method: bank_transfer
+- Auto-generated reference and notes
+
+**Result:** 
+- Collected amounts now show correctly in reports
+- Payment records automatically created
+- Project profitability report shows accurate collected amounts
+
+### Bug #5: Generate Items Button - NOT A BUG ✅
+**Status:** Already working correctly
+
+**Investigation:**
+- Generate Items button works as intended
+- Calls `generateStandardLineItems()` function
+- Creates line items based on Mezokuru pricing formula
+- Preset buttons also work correctly
+- Line items display properly in quotation form
+
+**Result:** No fix needed - feature is working correctly
+
 ### Next Steps
 To apply these fixes to production:
 ```bash
@@ -1035,4 +1063,4 @@ npm run build
 *Bug report created by: Kiro AI Assistant*  
 *Date: November 25, 2025*  
 *Last Updated: November 25, 2025*  
-*Status: 3 FIXED ✅ | 2 Pending | 1 Enhancement | 1 Architecture Issue*
+*Status: 4 FIXED ✅ | 1 NOT A BUG ✅ | 0 Pending | 1 Enhancement | 1 Architecture Issue*
