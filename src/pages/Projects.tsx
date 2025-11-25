@@ -23,6 +23,7 @@ const Projects = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [sortKey, setSortKey] = useState<string>('start_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -51,6 +52,11 @@ const Projects = () => {
     // Apply status filter
     if (filterStatus !== 'all') {
       filtered = filtered.filter((project) => project.status === filterStatus);
+    }
+
+    // Apply type filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter((project) => project.project_type === filterType);
     }
 
     // Apply search filter
@@ -83,7 +89,7 @@ const Projects = () => {
     });
 
     return filtered;
-  }, [projects, debouncedSearch, filterStatus, sortKey, sortDirection]);
+  }, [projects, debouncedSearch, filterStatus, filterType, sortKey, sortDirection]);
 
   const handleSort = useCallback((key: string) => {
     if (sortKey === key) {
@@ -128,9 +134,10 @@ const Projects = () => {
   const handleClearFilters = useCallback(() => {
     setSearchQuery('');
     setFilterStatus('all');
+    setFilterType('all');
   }, []);
 
-  const hasActiveFilters = searchQuery || filterStatus !== 'all';
+  const hasActiveFilters = searchQuery || filterStatus !== 'all' || filterType !== 'all';
 
   const columns: Column<Project>[] = [
     {
@@ -141,6 +148,12 @@ const Projects = () => {
         <div>
           <p className="font-medium text-[#2c3e50]">{project.name}</p>
           <p className="text-sm text-[#7f8c8d]">{project.client?.business}</p>
+          {project.project_type && (
+            <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-[#3498db] bg-opacity-10 text-[#3498db]">
+              {project.project_type === 'misc_it' ? 'Misc IT' : 
+               project.project_type.charAt(0).toUpperCase() + project.project_type.slice(1).replace('_', ' ')}
+            </span>
+          )}
         </div>
       ),
     },
@@ -250,6 +263,19 @@ const Projects = () => {
                   <option value="honey-period">Honey Period</option>
                   <option value="retainer">Retainer</option>
                   <option value="completed">Completed</option>
+                </select>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#ffd166] min-h-[44px]"
+                >
+                  <option value="all">All Types</option>
+                  <option value="website">Website</option>
+                  <option value="ecommerce">E-commerce</option>
+                  <option value="custom">Custom App</option>
+                  <option value="misc_it">Misc IT</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="consulting">Consulting</option>
                 </select>
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={handleClearFilters}>

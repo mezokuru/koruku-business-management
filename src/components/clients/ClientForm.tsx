@@ -4,6 +4,7 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import type { Client, ClientInput } from '../../types/database';
 import { useCreateClient, useUpdateClient } from '../../hooks/useClients';
+import { X } from 'lucide-react';
 
 interface ClientFormProps {
   client?: Client | null;
@@ -20,7 +21,11 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
     address: '',
     notes: '',
     active: true,
+    tags: [],
+    source: '',
   });
+
+  const [tagInput, setTagInput] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -39,6 +44,8 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
           address: client.address || '',
           notes: client.notes || '',
           active: client.active,
+          tags: client.tags || [],
+          source: client.source || '',
         });
       } else {
         setFormData({
@@ -49,9 +56,12 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
           address: '',
           notes: '',
           active: true,
+          tags: [],
+          source: '',
         });
       }
       setErrors({});
+      setTagInput('');
     });
   }, [client, isOpen]);
 
@@ -122,7 +132,7 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
     }
   };
 
-  const handleChange = (field: keyof ClientInput, value: string | boolean) => {
+  const handleChange = (field: keyof ClientInput, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error for this field when user starts typing
     if (errors[field]) {
@@ -131,6 +141,30 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
         delete newErrors[field];
         return newErrors;
       });
+    }
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !formData.tags?.includes(tagInput.trim())) {
+      setFormData((prev) => ({
+        ...prev,
+        tags: [...(prev.tags || []), tagInput.trim()],
+      }));
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: prev.tags?.filter((_, i) => i !== index) || [],
+    }));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
     }
   };
 
@@ -242,6 +276,80 @@ export default function ClientForm({ client, isOpen, onClose }: ClientFormProps)
             <p className="mt-1 text-sm text-[#e74c3c]" role="alert">
               {errors.notes}
             </p>
+          )}
+        </div>
+
+        <div className="w-full">
+          <label
+            htmlFor="source"
+            className="block text-sm font-medium text-[#2c3e50] mb-1"
+          >
+            Source
+          </label>
+          <select
+            id="source"
+            value={formData.source}
+            onChange={(e) => handleChange('source', e.target.value)}
+            disabled={isSubmitting}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#ffd166] disabled:bg-gray-100"
+          >
+            <option value="">Select source (optional)</option>
+            <option value="Referral">Referral</option>
+            <option value="Website">Website</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Google">Google Search</option>
+            <option value="Cold Outreach">Cold Outreach</option>
+            <option value="Networking Event">Networking Event</option>
+            <option value="Existing Client">Existing Client</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div className="w-full">
+          <label className="block text-sm font-medium text-[#2c3e50] mb-1">
+            Tags
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              disabled={isSubmitting}
+              placeholder="Add tag (e.g., VIP, Recurring, E-commerce)"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#ffd166] disabled:bg-gray-100"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleAddTag}
+              disabled={isSubmitting || !tagInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+          {formData.tags && formData.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {formData.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-[#3498db] text-white rounded-full text-sm"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(index)}
+                    disabled={isSubmitting}
+                    className="hover:bg-white hover:bg-opacity-20 rounded-full p-0.5"
+                    aria-label={`Remove ${tag}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
           )}
         </div>
 

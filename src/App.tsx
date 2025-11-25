@@ -16,6 +16,7 @@ const Clients = lazy(() => import('./pages/Clients'));
 const Projects = lazy(() => import('./pages/Projects'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Quotations = lazy(() => import('./pages/Quotations'));
+const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 // Configure React Query with enhanced error handling and retry logic
@@ -83,6 +84,7 @@ function App() {
                   <Route path="/projects" element={<Projects />} />
                   <Route path="/invoices" element={<Invoices />} />
                   <Route path="/quotations" element={<Quotations />} />
+                  <Route path="/reports" element={<Reports />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Route>

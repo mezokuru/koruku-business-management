@@ -1,8 +1,8 @@
-import { Circle, CheckCircle, Clock, AlertCircle, Code, Heart, RefreshCw, CheckCircle2, XCircle, HourglassIcon } from 'lucide-react';
+import { Circle, CheckCircle, Clock, AlertCircle, Code, Heart, RefreshCw, CheckCircle2, XCircle, HourglassIcon, FileText } from 'lucide-react';
 
 type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
 type ProjectStatus = 'planning' | 'development' | 'honey-period' | 'retainer' | 'completed';
-type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
 
 interface StatusBadgeProps {
   status: InvoiceStatus | ProjectStatus | QuotationStatus;
@@ -86,6 +86,11 @@ export default function StatusBadge({ status, variant }: StatusBadgeProps) {
       color: 'bg-[#95a5a6] text-white',
       icon: HourglassIcon,
       label: 'Expired'
+    },
+    converted: {
+      color: 'bg-[#9b59b6] text-white',
+      icon: FileText,
+      label: 'Converted'
     }
   };
   

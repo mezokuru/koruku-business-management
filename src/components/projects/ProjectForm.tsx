@@ -19,6 +19,7 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
     name: '',
     client_id: '',
     status: 'planning',
+    project_type: 'website',
     start_date: '',
     support_months: 6,
     support_end_date: '',
@@ -26,6 +27,12 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
     tech_stack: [],
     live_url: '',
     github_url: '',
+    repo_url: '',
+    staging_url: '',
+    production_url: '',
+    labour_percentage: 30,
+    labour_amount: undefined,
+    infrastructure_amount: undefined,
   });
 
   const [techStackInput, setTechStackInput] = useState('');
@@ -43,6 +50,7 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
           name: project.name,
           client_id: project.client_id,
           status: project.status,
+          project_type: project.project_type || 'website',
           start_date: project.start_date,
           support_months: project.support_months,
           support_end_date: project.support_end_date,
@@ -50,12 +58,19 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
           tech_stack: project.tech_stack || [],
           live_url: project.live_url || '',
           github_url: project.github_url || '',
+          repo_url: project.repo_url || '',
+          staging_url: project.staging_url || '',
+          production_url: project.production_url || '',
+          labour_percentage: project.labour_percentage ?? 30,
+          labour_amount: project.labour_amount,
+          infrastructure_amount: project.infrastructure_amount,
         });
       } else {
         setFormData({
           name: '',
           client_id: '',
           status: 'planning',
+          project_type: 'website',
           start_date: '',
           support_months: 6,
           support_end_date: '',
@@ -63,6 +78,12 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
           tech_stack: [],
           live_url: '',
           github_url: '',
+          repo_url: '',
+          staging_url: '',
+          production_url: '',
+          labour_percentage: 30,
+          labour_amount: undefined,
+          infrastructure_amount: undefined,
         });
       }
       setTechStackInput('');
@@ -101,19 +122,9 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
       newErrors.status = 'This field is required';
     }
 
-    // Start date validation (required, cannot be more than 30 days in future)
+    // Start date validation (required, can be any date - backdating allowed)
     if (!formData.start_date) {
       newErrors.start_date = 'This field is required';
-    } else {
-      const startDate = new Date(formData.start_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const maxDate = new Date(today);
-      maxDate.setDate(maxDate.getDate() + 30);
-      
-      if (startDate > maxDate) {
-        newErrors.start_date = 'Start date cannot be more than 30 days in the future';
-      }
     }
 
     // Support months validation (required, 0-60)
@@ -136,6 +147,28 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
     // GitHub URL validation (optional, valid URL format)
     if (formData.github_url && !validateURL(formData.github_url)) {
       newErrors.github_url = 'Please enter a valid URL (e.g., https://github.com/user/repo)';
+    }
+
+    // Repo URL validation (optional, valid URL format)
+    if (formData.repo_url && !validateURL(formData.repo_url)) {
+      newErrors.repo_url = 'Please enter a valid URL';
+    }
+
+    // Staging URL validation (optional, valid URL format)
+    if (formData.staging_url && !validateURL(formData.staging_url)) {
+      newErrors.staging_url = 'Please enter a valid URL';
+    }
+
+    // Production URL validation (optional, valid URL format)
+    if (formData.production_url && !validateURL(formData.production_url)) {
+      newErrors.production_url = 'Please enter a valid URL';
+    }
+
+    // Labour percentage validation (optional, 0-100)
+    if (formData.labour_percentage !== undefined && formData.labour_percentage !== null) {
+      if (formData.labour_percentage < 0 || formData.labour_percentage > 100) {
+        newErrors.labour_percentage = 'Labour percentage must be between 0 and 100';
+      }
     }
 
     setErrors(newErrors);
@@ -256,39 +289,77 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
           )}
         </div>
 
-        <div className="w-full">
-          <label
-            htmlFor="status"
-            className="block text-sm font-medium text-[#2c3e50] mb-1"
-          >
-            Status <span className="text-[#e74c3c]">*</span>
-          </label>
-          <select
-            id="status"
-            value={formData.status}
-            onChange={(e) => handleChange('status', e.target.value)}
-            disabled={isSubmitting}
-            className={`
-              w-full px-3 py-2 border rounded min-h-[44px]
-              ${errors.status ? 'border-[#e74c3c] focus:ring-[#e74c3c]' : 'border-gray-300 focus:ring-[#ffd166]'}
-              focus:outline-none focus:ring-2 focus:ring-offset-0
-              disabled:bg-gray-100 disabled:cursor-not-allowed
-            `}
-            aria-required="true"
-            aria-invalid={!!errors.status}
-            aria-describedby={errors.status ? 'status-error' : undefined}
-          >
-            <option value="planning">Planning</option>
-            <option value="development">Development</option>
-            <option value="honey-period">Honey Period</option>
-            <option value="retainer">Retainer</option>
-            <option value="completed">Completed</option>
-          </select>
-          {errors.status && (
-            <p id="status-error" className="mt-1 text-sm text-[#e74c3c]" role="alert">
-              {errors.status}
-            </p>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="w-full">
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-[#2c3e50] mb-1"
+            >
+              Status <span className="text-[#e74c3c]">*</span>
+            </label>
+            <select
+              id="status"
+              value={formData.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              disabled={isSubmitting}
+              className={`
+                w-full px-3 py-2 border rounded min-h-[44px]
+                ${errors.status ? 'border-[#e74c3c] focus:ring-[#e74c3c]' : 'border-gray-300 focus:ring-[#ffd166]'}
+                focus:outline-none focus:ring-2 focus:ring-offset-0
+                disabled:bg-gray-100 disabled:cursor-not-allowed
+              `}
+              aria-required="true"
+              aria-invalid={!!errors.status}
+              aria-describedby={errors.status ? 'status-error' : undefined}
+            >
+              <option value="planning">Planning</option>
+              <option value="development">Development</option>
+              <option value="honey-period">Honey Period</option>
+              <option value="retainer">Retainer</option>
+              <option value="completed">Completed</option>
+            </select>
+            {errors.status && (
+              <p id="status-error" className="mt-1 text-sm text-[#e74c3c]" role="alert">
+                {errors.status}
+              </p>
+            )}
+          </div>
+
+          <div className="w-full">
+            <label
+              htmlFor="project_type"
+              className="block text-sm font-medium text-[#2c3e50] mb-1"
+            >
+              Project Type <span className="text-[#e74c3c]">*</span>
+            </label>
+            <select
+              id="project_type"
+              value={formData.project_type}
+              onChange={(e) => handleChange('project_type', e.target.value)}
+              disabled={isSubmitting}
+              className={`
+                w-full px-3 py-2 border rounded min-h-[44px]
+                ${errors.project_type ? 'border-[#e74c3c] focus:ring-[#e74c3c]' : 'border-gray-300 focus:ring-[#ffd166]'}
+                focus:outline-none focus:ring-2 focus:ring-offset-0
+                disabled:bg-gray-100 disabled:cursor-not-allowed
+              `}
+              aria-required="true"
+              aria-invalid={!!errors.project_type}
+              aria-describedby={errors.project_type ? 'project_type-error' : undefined}
+            >
+              <option value="website">Website Development</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="custom">Custom Application</option>
+              <option value="misc_it">Miscellaneous IT</option>
+              <option value="maintenance">Maintenance/Support</option>
+              <option value="consulting">Consulting</option>
+            </select>
+            {errors.project_type && (
+              <p id="project_type-error" className="mt-1 text-sm text-[#e74c3c]" role="alert">
+                {errors.project_type}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,6 +495,80 @@ export default function ProjectForm({ project, isOpen, onClose }: ProjectFormPro
           disabled={isSubmitting}
           placeholder="https://github.com/user/repo"
         />
+
+        <div className="border-t pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-[#2c3e50] mb-3">Additional URLs</h3>
+          <div className="space-y-4">
+            <Input
+              label="Repository URL"
+              type="url"
+              value={formData.repo_url}
+              onChange={(e) => handleChange('repo_url', e.target.value)}
+              error={errors.repo_url}
+              disabled={isSubmitting}
+              placeholder="https://github.com/user/repo or https://gitlab.com/user/repo"
+            />
+
+            <Input
+              label="Staging URL"
+              type="url"
+              value={formData.staging_url}
+              onChange={(e) => handleChange('staging_url', e.target.value)}
+              error={errors.staging_url}
+              disabled={isSubmitting}
+              placeholder="https://staging.example.com"
+            />
+
+            <Input
+              label="Production URL"
+              type="url"
+              value={formData.production_url}
+              onChange={(e) => handleChange('production_url', e.target.value)}
+              error={errors.production_url}
+              disabled={isSubmitting}
+              placeholder="https://example.com"
+            />
+          </div>
+        </div>
+
+        <div className="border-t pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-[#2c3e50] mb-3">Pricing Breakdown</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input
+              label="Labour %"
+              type="number"
+              value={formData.labour_percentage?.toString() || '30'}
+              onChange={(e) => handleChange('labour_percentage', parseInt(e.target.value) || 30)}
+              error={errors.labour_percentage}
+              disabled={isSubmitting}
+              placeholder="30"
+              min="0"
+              max="100"
+            />
+
+            <Input
+              label="Labour Amount (R)"
+              type="number"
+              value={formData.labour_amount?.toString() || ''}
+              onChange={(e) => handleChange('labour_amount', e.target.value ? parseFloat(e.target.value) : undefined)}
+              disabled={isSubmitting}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+
+            <Input
+              label="Infrastructure Amount (R)"
+              type="number"
+              value={formData.infrastructure_amount?.toString() || ''}
+              onChange={(e) => handleChange('infrastructure_amount', e.target.value ? parseFloat(e.target.value) : undefined)}
+              disabled={isSubmitting}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">
           <Button

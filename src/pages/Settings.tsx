@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings';
 import { exportAllData, validateEmail } from '../lib/utils';
-import { Save, Download, Building2, FileText, Briefcase } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Save, Download, Building2, FileText, Briefcase, Upload, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { BusinessInfo, InvoiceSettings, ProjectSettings } from '../types/database';
 
@@ -44,12 +45,21 @@ const Settings = () => {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Logo upload state
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load settings when data is available
   useEffect(() => {
     if (settings) {
       if (settings.business_info) {
         setBusinessInfo(settings.business_info);
+        if (settings.business_info.logo_url) {
+          setLogoPreview(settings.business_info.logo_url);
+        }
       }
       if (settings.invoice_settings) {
         setInvoiceSettings(settings.invoice_settings);
@@ -59,6 +69,100 @@ const Settings = () => {
       }
     }
   }, [settings]);
+
+  // Handle logo file selection
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
+    setLogoFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle logo upload
+  const handleLogoUpload = async () => {
+    if (!logoFile) return;
+
+    setIsUploadingLogo(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Create unique filename
+      const fileExt = logoFile.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, logoFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(filePath);
+
+      // Update business info with logo URL
+      const updatedBusinessInfo = { ...businessInfo, logo_url: publicUrl };
+      setBusinessInfo(updatedBusinessInfo);
+
+      // Save to database
+      await updateSettings.mutateAsync([
+        { key: 'business_info', value: updatedBusinessInfo },
+      ]);
+
+      toast.success('Logo uploaded successfully');
+      setLogoFile(null);
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      toast.error('Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  // Handle logo removal
+  const handleLogoRemove = async () => {
+    try {
+      const updatedBusinessInfo = { ...businessInfo, logo_url: '' };
+      setBusinessInfo(updatedBusinessInfo);
+      setLogoPreview('');
+      setLogoFile(null);
+
+      await updateSettings.mutateAsync([
+        { key: 'business_info', value: updatedBusinessInfo },
+      ]);
+
+      toast.success('Logo removed successfully');
+    } catch (error) {
+      console.error('Logo removal error:', error);
+      toast.error('Failed to remove logo');
+    }
+  };
 
   // Validate form
   const validateForm = (): boolean => {
@@ -142,6 +246,68 @@ const Settings = () => {
             </div>
           </div>
           <div className="p-6 space-y-4">
+            {/* Logo Upload Section */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-2 text-[#2c3e50]">
+                  <ImageIcon size={20} className="text-[#ffd166]" />
+                  <h3 className="font-semibold">Company Logo</h3>
+                </div>
+                
+                {logoPreview ? (
+                  <div className="relative">
+                    <img 
+                      src={logoPreview} 
+                      alt="Company Logo" 
+                      className="max-w-xs max-h-32 object-contain rounded border border-gray-200"
+                    />
+                    <button
+                      onClick={handleLogoRemove}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      aria-label="Remove logo"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-48 h-32 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                    <ImageIcon size={48} className="text-gray-400" />
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoSelect}
+                    className="hidden"
+                    aria-label="Select logo file"
+                  />
+                  <Button
+                    variant="secondary"
+                    icon={<Upload size={18} />}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    Select Logo
+                  </Button>
+                  {logoFile && (
+                    <Button
+                      variant="primary"
+                      onClick={handleLogoUpload}
+                      loading={isUploadingLogo}
+                      disabled={isUploadingLogo}
+                    >
+                      Upload Logo
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-[#7f8c8d] text-center">
+                  Recommended: PNG or JPG, max 2MB. Logo will appear on invoices and quotations.
+                </p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 type="text"

@@ -4,6 +4,7 @@ import {
   Users, 
   FolderKanban, 
   FileText, 
+  BarChart3,
   Settings, 
   LogOut,
   X
@@ -36,6 +37,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { to: '/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/invoices', icon: FileText, label: 'Invoices' },
     { to: '/quotations', icon: FileText, label: 'Quotations' },
+    { to: '/reports', icon: BarChart3, label: 'Reports' },
     { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 
