@@ -194,30 +194,63 @@ Total: R ${breakdown.total.toFixed(2)}
 
 /**
  * Pricing presets for common project types
+ * Updated to match actual Mezokuru pricing structure
  */
 export const PRICING_PRESETS = {
-  portfolio: {
-    name: 'Simple Portfolio',
-    total: 2800,
+  personal_single: {
+    name: 'Personal (Single Page)',
+    total: 1200,
     type: 'small' as const,
-    description: 'Photography portfolio, gallery, contact form',
+    category: 'Websites',
+    description: 'Basic landing page, single page portfolio',
   },
-  business: {
-    name: 'Business Website',
-    total: 4500,
+  portfolio_multi: {
+    name: 'Portfolio (Multi Page 3+)',
+    total: 3000,
+    type: 'small' as const,
+    category: 'Websites',
+    description: 'Multi-page portfolio, gallery, contact form',
+  },
+  business_starter: {
+    name: 'Business Starter',
+    total: 6800,
     type: 'medium' as const,
-    description: '5-10 pages, contact forms, service pages',
+    category: 'Websites',
+    description: 'Small business website, 5-10 pages',
   },
-  ecommerce: {
-    name: 'E-commerce Site',
-    total: 8000,
-    type: 'large' as const,
-    description: '10+ pages, payment integration, product catalog',
+  business_pro: {
+    name: 'Business Pro',
+    total: 11250,
+    type: 'medium' as const,
+    category: 'Websites',
+    description: 'Professional business site, advanced features',
   },
-  custom: {
-    name: 'Custom System',
+  ecommerce_basic: {
+    name: 'E-commerce Basic',
     total: 15000,
+    type: 'large' as const,
+    category: 'E-commerce',
+    description: 'Basic online store, product catalog, payment integration',
+  },
+  ecommerce_advanced: {
+    name: 'E-commerce Advanced',
+    total: 25000,
+    type: 'large' as const,
+    category: 'E-commerce',
+    description: 'Full-featured store, inventory management, advanced features',
+  },
+  mobile_mvp: {
+    name: 'Mobile App MVP',
+    total: 25000,
     type: 'custom' as const,
-    description: 'React system, custom features, integrations',
+    category: 'Mobile Apps',
+    description: 'Cross-platform mobile app, minimum viable product',
+  },
+  mobile_fpa: {
+    name: 'Mobile App FPA',
+    total: 55000,
+    type: 'custom' as const,
+    category: 'Mobile Apps',
+    description: 'Full production app, cross-platform, complete features',
   },
 };
